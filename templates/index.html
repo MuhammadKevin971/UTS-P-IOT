@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Monitoring</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .data-box {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sensor Monitoring Dashboard</h1>
+        
+        <div class="data-box">
+            <h2>Data Terkini</h2>
+            <p>Suhu: <span id="suhu">-</span>°C</p>
+            <p>Kelembaban: <span id="humidity">-</span>%</p>
+            <p>Intensitas Cahaya: <span id="lux">-</span> lux</p>
+            <p>Status Relay: <span id="relay">-</span></p>
+        </div>
+
+        <div class="data-box">
+            <h2>Kontrol Relay</h2>
+            <button class="button" onclick="controlRelay('ON')">ON</button>
+            <button class="button" onclick="controlRelay('OFF')">OFF</button>
+        </div>
+
+        <div class="data-box">
+            <h2>Statistik</h2>
+            <p>Suhu Min/Max/Rata-rata: <span id="suhu-stats">-</span></p>
+            <p>Kelembaban Min/Max/Rata-rata: <span id="hum-stats">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        function updateData() {
+            fetch('/data')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Data received:', data);
+                    
+                    if (data.records && data.records.length > 0) {
+                        const latest = data.records[0];
+                        document.getElementById('suhu').textContent = latest.suhu || '-';
+                        document.getElementById('humidity').textContent = latest.humidity || '-';
+                        document.getElementById('lux').textContent = latest.lux || '-';
+                        document.getElementById('relay').textContent = latest.relay_state || '-';
+                        
+                        document.getElementById('suhu-stats').textContent = 
+                            `${data.suhumin}°C / ${data.suhumax}°C / ${data.suhurata}°C`;
+                        document.getElementById('hum-stats').textContent = 
+                            `${data.humiditymin}% / ${data.humiditymax}% / ${data.humidityrata}%`;
+                    } else {
+                        // Jika belum ada data dari sensor
+                        document.getElementById('suhu').textContent = '-';
+                        document.getElementById('humidity').textContent = '-';
+                        document.getElementById('lux').textContent = '-';
+                        document.getElementById('relay').textContent = '-';
+                        document.getElementById('suhu-stats').textContent = 'Menunggu data dari sensor...';
+                        document.getElementById('hum-stats').textContent = 'Menunggu data dari sensor...';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    document.getElementById('suhu').textContent = 'Error';
+                    document.getElementById('humidity').textContent = 'Error';
+                    document.getElementById('lux').textContent = 'Error';
+                    document.getElementById('relay').textContent = 'Error';
+                });
+        }
+
+        function controlRelay(state) {
+            fetch('/relay', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ state: state })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Relay response:', data);
+                // Update data setelah mengirim perintah relay
+                setTimeout(updateData, 500);
+            })
+            .catch(error => {
+                console.error('Error controlling relay:', error);
+                alert('Gagal mengontrol relay: ' + error);
+            });
+        }
+
+        // Update data setiap 5 detik
+        updateData();
+        setInterval(updateData, 5000);
+    </script>
+</body>
+</html>
